@@ -8,14 +8,20 @@
 // Copyright (C) 2008 Mike McCauley
 // $Id: receiver.pde,v 1.3 2009/03/30 00:07:24 mikem Exp $
 
-#include <VirtualWire.h>
 #include <EtherCard.h>
+#include <SoftwareSerial.h>// import the serial library
+
+int gRxPin = 8;
+int gTxPin = 9;
+
+SoftwareSerial BTSerial(gRxPin, gTxPin);
 
 // ethernet interface mac address, must be unique on the LAN
 static byte mymac[] = { 0x74,0x69,0x69,0x2D,0x30,0x31 };
 
 // MAC address in the HEX format  
 String macString = "";
+String readdata = "";
 
 byte Ethernet::buffer[700];
 static uint32_t timer;
@@ -55,34 +61,17 @@ void initEthernet()
 void setup()
 {
   Serial.begin(9600);  // Debugging only
-
-  // Initialise the IO and ISR
-  vw_set_ptt_inverted(true); // Required for DR3100
-  vw_setup(2000);  // Bits per sec
-  vw_set_rx_pin(8);
-  vw_rx_start();       // Start the receiver PLL running
+  BTSerial.begin(38600);
   initEthernet();
 }
 
 void loop()
 {
-  uint8_t buf[VW_MAX_MESSAGE_LEN];
-  uint8_t buflen = VW_MAX_MESSAGE_LEN;
   ether.packetLoop(ether.packetReceive());
-
-  if (vw_get_message(buf, &buflen)) // Non-blocking
-  {
-    int i;
-
-    String data = "";
-    for (i = 0; i < buflen; i++) {
-      data += buf[i];
-    }
-    // If we get the 1 (ASCII code - 49)
-    if (data == "49") {
-      Serial.println("---------HEART BEAT------------");
-      sendDataToServer(1);
-    }
+  if (BTSerial.available()) {
+    int state = BTSerial.read();
+    Serial.println("---------HEART BEAT------------");
+    sendDataToServer(1);
   }
 }
 
@@ -92,7 +81,7 @@ void loop()
 void sendDataToServer(int value)
 {
   if (millis() > timer) {
-    timer = millis() + 100;
+    timer = millis() + 300;
     Stash stash;
     byte sd = stash.create();
     stash.print("mac_address=");
